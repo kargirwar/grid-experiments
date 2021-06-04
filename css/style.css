@@ -1,17 +1,10 @@
-table {
-    border-width: 1px;
-    border-style: solid;
-    border-color: black;
-    border-collapse: collapse;
+body {
+	display: grid;
+	width:100vw;
+	height:100vh;
 }
-table td {
-    border-width: 1px;
-    border-style: solid;
-    border-color: black;
-}
-table th {
-    border-width: 1px;
-    border-style: solid;
-    border-color: black;
-    background-color: green;
+
+.header {
+	width:3200px;
+	display: grid;
 }

@@ -1,4 +1,4 @@
-import { Utils } from "./utils.js"
+import { ResizableTable } from './resizable-table.js';
 class Index {
 	constructor() {
 		let json = `{
@@ -34005,17 +34005,13 @@ class Index {
 					"payment-updated-by": ""
 				}
 			]
-		}`
-		json = JSON.parse(json)
-        console.log('parsed')	
-
-        let templ = document.getElementById('row-template').innerHTML
-        let $body = document.getElementById('table').querySelector('tbody')
-        json.data.forEach((r) => {
-            let n = Utils.generateNode(templ, r)
-            $body.append(n)
-        })
+		}`;
+		json = JSON.parse(json);
+		document.addEventListener('DOMContentLoaded', async () => {
+			let table = new ResizableTable();
+			table.draw(json);
+		});
 	}
 }
 
-new Index()
+new Index();
