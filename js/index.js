@@ -30,7 +30,7 @@ class Index {
         let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
         let $body = document.querySelector('body');
 
-        let $bt = document.getElementById('div-template')
+        let $bt = document.getElementById('row-template')
         let bt = $bt.innerHTML
 
 		while (true) {
@@ -48,13 +48,12 @@ class Index {
     }
 
     appendRow($b, bt, row) {
-        for (let j = 1; j < row.length; j += 2) {
-            let v = row[j]
+        let json = {};
+        for (let i = 0; i < row.length; i += 2) {
+            json[row[i]] = row[i + 1];
+        }
 
-            $b.insertAdjacentHTML('beforeend', Utils.processTemplate(bt, {
-                value: v,
-            }))
-        }	
+        $b.insertAdjacentHTML('beforeend', Utils.processTemplate(bt, json));
     }
 }
 
