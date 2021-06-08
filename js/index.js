@@ -4,6 +4,8 @@ import { Utils } from "./utils.js"
 import { DbUtils } from "./dbutils.js"
 import { Stream } from "./stream.js"
 
+const TAG = 'index';
+
 class Index {
     constructor() {
         this.render();
@@ -30,7 +32,7 @@ class Index {
         let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
         let $body = document.querySelector('tbody');
 
-        let $bt = document.getElementById('results-body-col-template')
+        let $bt = document.getElementById('row-template')
         let bt = $bt.innerHTML
 
 		while (true) {
@@ -44,22 +46,16 @@ class Index {
         }
 
         let e = new Date();
-        Log('index', e.getTime() - s.getTime());
+        Log(TAG, e.getTime() - s.getTime());
     }
 
     appendRow($b, bt, row) {
-		let $tr = Utils.generateNode('<tr></tr>', {})
-        $b.appendChild($tr)
-
-        let $row = $b.lastChild
-
-        for (let j = 1; j < row.length; j += 2) {
-            let v = row[j]
-
-            $row.insertAdjacentHTML('beforeend', Utils.processTemplate(bt, {
-                value: v,
-            }))
-        }	
+        //convert to form suitable for processTemplate
+        let json = {}
+        for (let i = 0; i < row.length; i += 2) {
+            json[row[i]] = row[i + 1]; 
+        }
+        $b.insertAdjacentHTML('beforeend', Utils.processTemplate(bt, json))
     }
 }
 
