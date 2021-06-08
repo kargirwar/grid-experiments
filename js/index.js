@@ -28,9 +28,9 @@ class Index {
         let s = new Date();
 
         let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
-        let $body = document.querySelector('tbody');
+        let $body = document.querySelector('body');
 
-        let $bt = document.getElementById('results-body-col-template')
+        let $bt = document.getElementById('div-template')
         let bt = $bt.innerHTML
 
 		while (true) {
@@ -48,15 +48,10 @@ class Index {
     }
 
     appendRow($b, bt, row) {
-		let $tr = Utils.generateNode('<tr></tr>', {})
-        $b.appendChild($tr)
-
-        let $row = $b.lastChild
-
         for (let j = 1; j < row.length; j += 2) {
             let v = row[j]
 
-            $row.insertAdjacentHTML('beforeend', Utils.processTemplate(bt, {
+            $b.insertAdjacentHTML('beforeend', Utils.processTemplate(bt, {
                 value: v,
             }))
         }	
