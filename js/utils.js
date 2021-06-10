@@ -20,6 +20,17 @@ class Utils {
         return sessionStorage.getItem(key)
 	}
 
+    static createTemplate(row) {
+        let t = '<tr>';
+
+        for (let i = 0; i < row.length; i += 2) {
+            t += `<td>{${row[i]}}</td>`;
+        }
+
+        t += '</tr>';
+        return t;
+    }
+
 	static processTemplate(templ, data) {
 		var re = new RegExp(/{(.*?)}/g);
 
