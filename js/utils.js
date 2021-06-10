@@ -24,7 +24,12 @@ class Utils {
         let t = '<tr>';
 
         for (let i = 0; i < row.length; i += 2) {
-            t += `<td>{${row[i]}}</td>`;
+            t += `<td class="{null-${i}}">
+                    <div class="td">
+                        <span>{${row[i]}}</span>
+                        <i class="fk-ref icon-new-tab {display-${i}}" data-table="{ref-table-${i}}" data-column="{ref-column-${i}}"></i>
+                    </div>
+                </td>`;
         }
 
         t += '</tr>';

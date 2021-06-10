@@ -1517,3 +1517,15 @@ table th {
     border-color: black;
     background-color: green;
 }
+
+.icon-show {
+	display:block;
+}
+
+.icon-hide {
+	display:none;
+}
+
+.null {
+	color:#ddd;
+}

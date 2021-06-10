@@ -44,8 +44,6 @@ class Index {
         let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
         let $body = document.querySelector('tbody');
 
-        //let $bt = document.getElementById('row-template')
-        //let bt = $bt.innerHTML
         let rt = '';
 
         let i = 0;
@@ -60,6 +58,7 @@ class Index {
 
             if (i == 0) {
                 //create template for this table
+                this.showHeaders(row);
                 rt = Utils.createTemplate(row);
                 i++;
             }
@@ -69,6 +68,18 @@ class Index {
 
         let e = new Date();
         Log(TAG, e.getTime() - s.getTime());
+    }
+
+    showHeaders(row) {
+        let $thead = document.querySelector('thead');
+        let t = '<tr>';
+        for (let i = 0; i < row.length; i += 2) {
+
+            t += `<th>${row[i]}</th>`;
+        }
+
+        t += '</tr>'
+        $thead.insertAdjacentHTML('beforeend', t);
     }
 
     createFKMap(constraints) {
@@ -107,12 +118,36 @@ class Index {
         return fkMap
     }
 
-
     appendRow($b, rt, row, fkMap) {
         //convert to form suitable for processTemplate
         let json = {}
         for (let i = 0; i < row.length; i += 2) {
+            let c = row[i] //this is column name
+            let v = row[i + 1]
+            let refTable = ''
+            let refColumn = ''
+
+            //get reftable and refColumn if any. Only for Non NULL values
+            if (fkMap[c] && v != "NULL") {
+                refTable = fkMap[c]['ref-table']
+                refColumn = fkMap[c]['ref-column']
+            }
+
             json[row[i]] = row[i + 1]; 
+            json[`ref-table-${i}`] = refTable;
+            json[`ref-column-${i}`] = refColumn;
+
+            if (refTable) {
+                json[`display-${i}`] = `icon-show`;
+            } else {
+                json[`display-${i}`] = `icon-hide`;
+            }
+
+            if (v == "NULL") {
+                json[`null-${i}`] = 'null';
+            } else {
+                json[`null-${i}`] = '';
+            }
         }
         $b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
     }
