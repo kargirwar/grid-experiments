@@ -5,6 +5,7 @@ import { DbUtils } from "./dbutils.js"
 import { Stream } from "./stream.js"
 
 const TAG = 'index';
+const BATCH_SIZE = 50;
 
 class Index {
     constructor() {
@@ -47,6 +48,8 @@ class Index {
         let rt = '';
 
         let i = 0;
+        let j = 0;
+        let t = '';
         var re = new RegExp(/{(.*?)}/g);
 
         while (true) {
@@ -95,7 +98,7 @@ class Index {
                 }
             }
 
-            rt = rt.replace(re, (match, p1) => {
+            t += rt.replace(re, (match, p1) => {
                 if (json[p1] || json[p1] == 0 || json[p1] == '') {
                     return json[p1];
                 } else {
@@ -103,8 +106,16 @@ class Index {
                 }
             });
 
-            $tbody.insertAdjacentHTML('beforeend', rt);
+            j++;
+
+            if (j == BATCH_SIZE) {
+                $tbody.insertAdjacentHTML('beforeend', t);
+                j = 0;
+                t = '';
+            }
         }
+
+        $tbody.insertAdjacentHTML('beforeend', t);
 
         let e = new Date();
         Log(TAG, e.getTime() - s.getTime());
