@@ -1,4 +1,2 @@
 body {
-	display:grid;
-	grid-template-columns: repeat(32, 100px);
 }
