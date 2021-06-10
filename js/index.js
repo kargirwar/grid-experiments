@@ -36,13 +36,13 @@ class Index {
 
         let params = {
             'session-id': sessionId,
-            query: `select * from \`inventory-1\` limit 100`
+            query: `select * from \`inventory-1\` limit 250`
         };
 
         let s = new Date();
 
         let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
-        let $body = document.querySelector('tbody');
+        let $tbody = document.querySelector('tbody');
 
         let rt = '';
 
@@ -63,7 +63,47 @@ class Index {
                 i++;
             }
 
-            this.appendRow($body, rt, row, fkMap);
+            //this.appendRow(re, $body, rt, row, fkMap);
+
+            let json = {}
+            for (let i = 0; i < row.length; i += 2) {
+                let c = row[i] //this is column name
+                let v = row[i + 1]
+                let refTable = ''
+                let refColumn = ''
+
+                //get reftable and refColumn if any. Only for Non NULL values
+                if (fkMap[c] && v != "NULL") {
+                    refTable = fkMap[c]['ref-table']
+                    refColumn = fkMap[c]['ref-column']
+                }
+
+                json[row[i]] = row[i + 1]; 
+                json[`ref-table-${i}`] = refTable;
+                json[`ref-column-${i}`] = refColumn;
+
+                if (refTable) {
+                    json[`display-${i}`] = `icon-show`;
+                } else {
+                    json[`display-${i}`] = `icon-hide`;
+                }
+
+                if (v == "NULL") {
+                    json[`null-${i}`] = 'null';
+                } else {
+                    json[`null-${i}`] = '';
+                }
+            }
+
+            rt = rt.replace(re, (match, p1) => {
+                if (json[p1] || json[p1] == 0 || json[p1] == '') {
+                    return json[p1];
+                } else {
+                    return match;
+                }
+            });
+
+            $tbody.insertAdjacentHTML('beforeend', rt);
         }
 
         let e = new Date();
@@ -118,7 +158,7 @@ class Index {
         return fkMap
     }
 
-    appendRow($b, rt, row, fkMap) {
+    appendRow(re, $b, rt, row, fkMap) {
         //convert to form suitable for processTemplate
         let json = {}
         for (let i = 0; i < row.length; i += 2) {
@@ -149,7 +189,18 @@ class Index {
                 json[`null-${i}`] = '';
             }
         }
-        $b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
+
+        rt = rt.replace(re, function(match, p1) {
+            if (json[p1] || json[p1] == 0 || json[p1] == '') {
+                return json[p1];
+            } else {
+                return match;
+            }
+        });
+
+        $b.insertAdjacentHTML('beforeend', rt);
+
+        //$b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
     }
 }
 
