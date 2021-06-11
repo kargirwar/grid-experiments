@@ -3,6 +3,7 @@ import { Log } from "./logger.js"
 import { Utils } from "./utils.js"
 import { DbUtils } from "./dbutils.js"
 import { Stream } from "./stream.js"
+import { Resizer } from "./resizer.js"
 
 const TAG = 'index';
 const BATCH_SIZE = 50;
@@ -62,6 +63,7 @@ class Index {
             if (i == 0) {
                 //create template for this table
                 this.showHeaders(row);
+                this.attachResizers();
                 rt = Utils.createTemplate(row);
                 i++;
             }
@@ -119,6 +121,18 @@ class Index {
 
         let e = new Date();
         Log(TAG, e.getTime() - s.getTime());
+
+        //setTimeout(() => {
+            //let $headers = document.querySelectorAll('th');
+            //$headers[0].style.width = '200px';
+        //}, 2000);
+    }
+
+    attachResizers() {
+        let $headers = document.querySelectorAll('th');
+        $headers.forEach(($h) => {
+            new Resizer($h);
+        })
     }
 
     showHeaders(row) {
@@ -126,7 +140,12 @@ class Index {
         let t = '<tr>';
         for (let i = 0; i < row.length; i += 2) {
 
-            t += `<th>${row[i]}</th>`;
+            t += `<th>
+                    <div class="th">
+                        <div>${row[i]}</div>
+                        <div class="resizer"></div>
+                    </div>
+                </th>`;
         }
 
         t += '</tr>'
