@@ -4,11 +4,6 @@ body {
 	overflow:scroll;
 }
 
-svg {
-	height:500vh;
-	width:200vw;
-}
-
 table {
     border-width: 1px;
     border-style: solid;
