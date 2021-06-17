@@ -1,3 +1,4 @@
+import { Grid } from "/node_modules/gridjs/dist/gridjs.production.es.min.js"
 import { Constants } from "./constants.js"
 import { Log } from "./logger.js"
 import { Utils } from "./utils.js"
@@ -53,6 +54,8 @@ class Index {
         let t = '';
         var re = new RegExp(/{(.*?)}/g);
 
+        let columns = [];
+        let data = [];
         while (true) {
             let row = await stream.get();
 
@@ -61,71 +64,30 @@ class Index {
             }
 
             if (i == 0) {
-                //create template for this table
-                this.showHeaders(row);
-                this.attachResizers();
-                rt = Utils.createTemplate(row);
                 i++;
-            }
-
-            //this.appendRow(re, $body, rt, row, fkMap);
-
-            let json = {}
-            for (let i = 0; i < row.length; i += 2) {
-                let c = row[i] //this is column name
-                let v = row[i + 1]
-                let refTable = ''
-                let refColumn = ''
-
-                //get reftable and refColumn if any. Only for Non NULL values
-                if (fkMap[c] && v != "NULL") {
-                    refTable = fkMap[c]['ref-table']
-                    refColumn = fkMap[c]['ref-column']
-                }
-
-                json[row[i]] = row[i + 1]; 
-                json[`ref-table-${i}`] = refTable;
-                json[`ref-column-${i}`] = refColumn;
-
-                if (refTable) {
-                    json[`display-${i}`] = `icon-show`;
-                } else {
-                    json[`display-${i}`] = `icon-hide`;
-                }
-
-                if (v == "NULL") {
-                    json[`null-${i}`] = 'null';
-                } else {
-                    json[`null-${i}`] = '';
+                for (let j = 0; j < row.length; j += 2) {
+                    columns.push(row[j]);
                 }
             }
 
-            t += rt.replace(re, (match, p1) => {
-                if (json[p1] || json[p1] == 0 || json[p1] == '') {
-                    return json[p1];
-                } else {
-                    return match;
-                }
-            });
-
-            j++;
-
-            if (j == BATCH_SIZE) {
-                $tbody.insertAdjacentHTML('beforeend', t);
-                j = 0;
-                t = '';
+            let d = [];
+            for (let j = 0; j < row.length; j += 2) {
+                d.push(row[j + 1]);
             }
+
+            data.push(d);
+            break;
         }
 
-        $tbody.insertAdjacentHTML('beforeend', t);
+        Log(TAG, JSON.stringify(columns));
+
+        let grid = new Grid({
+            columns: columns,
+            data: data,
+        }).render(document.getElementById("table"));
 
         let e = new Date();
         Log(TAG, e.getTime() - s.getTime());
-
-        //setTimeout(() => {
-            //let $headers = document.querySelectorAll('th');
-            //$headers[0].style.width = '200px';
-        //}, 2000);
     }
 
     attachResizers() {
