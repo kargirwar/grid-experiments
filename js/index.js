@@ -1,3 +1,4 @@
+import { defineCustomElements, applyPolyfills } from 'https://unpkg.com/@revolist/revogrid@latest/loader/index.es2017.js';
 import { Constants } from "./constants.js"
 import { Log } from "./logger.js"
 import { Utils } from "./utils.js"
@@ -10,6 +11,7 @@ const BATCH_SIZE = 50;
 
 class Index {
     constructor() {
+        defineCustomElements();
         this.render();
     }
 
@@ -38,20 +40,18 @@ class Index {
 
         let params = {
             'session-id': sessionId,
-            query: `select * from \`inventory-1\` limit 250`
+            query: `select * from \`bills-1\` limit 1000`
         };
 
+        Log(TAG, "Starting");
         let s = new Date();
 
         let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
-        let $tbody = document.querySelector('tbody');
-
-        let rt = '';
+		const grid = document.querySelector('revo-grid');
 
         let i = 0;
-        let j = 0;
-        let t = '';
-        var re = new RegExp(/{(.*?)}/g);
+        let columns = [];
+        let items = [];
 
         while (true) {
             let row = await stream.get();
@@ -61,177 +61,134 @@ class Index {
             }
 
             if (i == 0) {
-                //create template for this table
-                this.showHeaders(row);
-                this.attachResizers();
-                rt = Utils.createTemplate(row);
+                for (let j = 0; j < row.length; j += 2) {
+                    columns.push({
+                        'prop': row[j],
+                        'name': row[j],
+                    });
+                }
                 i++;
             }
 
-            //this.appendRow(re, $body, rt, row, fkMap);
-
-            let json = {}
-            for (let i = 0; i < row.length; i += 2) {
-                let c = row[i] //this is column name
-                let v = row[i + 1]
-                let refTable = ''
-                let refColumn = ''
-
-                //get reftable and refColumn if any. Only for Non NULL values
-                if (fkMap[c] && v != "NULL") {
-                    refTable = fkMap[c]['ref-table']
-                    refColumn = fkMap[c]['ref-column']
-                }
-
-                json[row[i]] = row[i + 1]; 
-                json[`ref-table-${i}`] = refTable;
-                json[`ref-column-${i}`] = refColumn;
-
-                if (refTable) {
-                    json[`display-${i}`] = `icon-show`;
-                } else {
-                    json[`display-${i}`] = `icon-hide`;
-                }
-
-                if (v == "NULL") {
-                    json[`null-${i}`] = 'null';
-                } else {
-                    json[`null-${i}`] = '';
-                }
+            let item = {};
+            for (let j = 0; j < row.length; j += 2) {
+                item[row[j]] = row[j + 1];
             }
 
-            t += rt.replace(re, (match, p1) => {
-                if (json[p1] || json[p1] == 0 || json[p1] == '') {
-                    return json[p1];
-                } else {
-                    return match;
-                }
-            });
-
-            j++;
-
-            if (j == BATCH_SIZE) {
-                $tbody.insertAdjacentHTML('beforeend', t);
-                j = 0;
-                t = '';
-            }
+            items.push(item);
         }
-
-        $tbody.insertAdjacentHTML('beforeend', t);
 
         let e = new Date();
+        grid.resize = true;
+		grid.columns = columns;
+		grid.source = items;
         Log(TAG, e.getTime() - s.getTime());
+	}
 
-        //setTimeout(() => {
-            //let $headers = document.querySelectorAll('th');
-            //$headers[0].style.width = '200px';
-        //}, 2000);
-    }
+	attachResizers() {
+		let $headers = document.querySelectorAll('th');
+		$headers.forEach(($h) => {
+			new Resizer($h);
+		})
+	}
 
-    attachResizers() {
-        let $headers = document.querySelectorAll('th');
-        $headers.forEach(($h) => {
-            new Resizer($h);
-        })
-    }
+	showHeaders(row) {
+		let $thead = document.querySelector('thead');
+		let t = '<tr>';
+		for (let i = 0; i < row.length; i += 2) {
 
-    showHeaders(row) {
-        let $thead = document.querySelector('thead');
-        let t = '<tr>';
-        for (let i = 0; i < row.length; i += 2) {
+			t += `<th>
+					<div class="th">
+						<div>${row[i]}</div>
+						<div class="resizer"></div>
+					</div>
+				</th>`;
+		}
 
-            t += `<th>
-                    <div class="th">
-                        <div>${row[i]}</div>
-                        <div class="resizer"></div>
-                    </div>
-                </th>`;
-        }
+		t += '</tr>'
+		$thead.insertAdjacentHTML('beforeend', t);
+	}
 
-        t += '</tr>'
-        $thead.insertAdjacentHTML('beforeend', t);
-    }
+	createFKMap(constraints) {
+		let fkMap = {}
+		let colIndex, refTblIndex, refColIndex
 
-    createFKMap(constraints) {
-        let fkMap = {}
-        let colIndex, refTblIndex, refColIndex
+		//first get indexes of columns of interest
+		let i = 0
+		constraints[0].forEach((c) => {
+			switch (c) {
+				case 'COLUMN_NAME':
+					colIndex = (i + 1)
+					break
 
-        //first get indexes of columns of interest
-        let i = 0
-        constraints[0].forEach((c) => {
-            switch (c) {
-                case 'COLUMN_NAME':
-                    colIndex = (i + 1)
-                    break
+				case 'REFERENCED_TABLE_NAME':
+					refTblIndex = (i + 1)
+					break;
 
-                case 'REFERENCED_TABLE_NAME':
-                    refTblIndex = (i + 1)
-                    break;
+				case 'REFERENCED_COLUMN_NAME':
+					refColIndex = (i + 1)
+					break;
+			}
+			i++
+		})
 
-                case 'REFERENCED_COLUMN_NAME':
-                    refColIndex = (i + 1)
-                    break;
-            }
-            i++
-        })
+		//Now get values of columns for each row
+		constraints.forEach((row) => {
+			if (row[refTblIndex] != "NULL") {
+				fkMap[row[colIndex]] = {
+					'ref-table': row[refTblIndex],
+					'ref-column': row[refColIndex],
+				}
+			}
+		})
 
-        //Now get values of columns for each row
-        constraints.forEach((row) => {
-            if (row[refTblIndex] != "NULL") {
-                fkMap[row[colIndex]] = {
-                    'ref-table': row[refTblIndex],
-                    'ref-column': row[refColIndex],
-                }
-            }
-        })
+		return fkMap
+	}
 
-        return fkMap
-    }
+	appendRow(re, $b, rt, row, fkMap) {
+		//convert to form suitable for processTemplate
+		let json = {}
+		for (let i = 0; i < row.length; i += 2) {
+			let c = row[i] //this is column name
+			let v = row[i + 1]
+			let refTable = ''
+			let refColumn = ''
 
-    appendRow(re, $b, rt, row, fkMap) {
-        //convert to form suitable for processTemplate
-        let json = {}
-        for (let i = 0; i < row.length; i += 2) {
-            let c = row[i] //this is column name
-            let v = row[i + 1]
-            let refTable = ''
-            let refColumn = ''
+			//get reftable and refColumn if any. Only for Non NULL values
+			if (fkMap[c] && v != "NULL") {
+				refTable = fkMap[c]['ref-table']
+				refColumn = fkMap[c]['ref-column']
+			}
 
-            //get reftable and refColumn if any. Only for Non NULL values
-            if (fkMap[c] && v != "NULL") {
-                refTable = fkMap[c]['ref-table']
-                refColumn = fkMap[c]['ref-column']
-            }
+			json[row[i]] = row[i + 1]; 
+			json[`ref-table-${i}`] = refTable;
+			json[`ref-column-${i}`] = refColumn;
 
-            json[row[i]] = row[i + 1]; 
-            json[`ref-table-${i}`] = refTable;
-            json[`ref-column-${i}`] = refColumn;
+			if (refTable) {
+				json[`display-${i}`] = `icon-show`;
+			} else {
+				json[`display-${i}`] = `icon-hide`;
+			}
 
-            if (refTable) {
-                json[`display-${i}`] = `icon-show`;
-            } else {
-                json[`display-${i}`] = `icon-hide`;
-            }
+			if (v == "NULL") {
+				json[`null-${i}`] = 'null';
+			} else {
+				json[`null-${i}`] = '';
+			}
+		}
 
-            if (v == "NULL") {
-                json[`null-${i}`] = 'null';
-            } else {
-                json[`null-${i}`] = '';
-            }
-        }
+		rt = rt.replace(re, function(match, p1) {
+			if (json[p1] || json[p1] == 0 || json[p1] == '') {
+				return json[p1];
+			} else {
+				return match;
+			}
+		});
 
-        rt = rt.replace(re, function(match, p1) {
-            if (json[p1] || json[p1] == 0 || json[p1] == '') {
-                return json[p1];
-            } else {
-                return match;
-            }
-        });
+		$b.insertAdjacentHTML('beforeend', rt);
 
-        $b.insertAdjacentHTML('beforeend', rt);
-
-        //$b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
-    }
+		//$b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
+	}
 }
 
 new Index()
