@@ -1,4 +1,6 @@
-import { defineCustomElements, applyPolyfills } from 'https://unpkg.com/@revolist/revogrid@latest/loader/index.es2017.js';
+//import { defineCustomElements } from 'https://unpkg.com/@revolist/revogrid@latest/loader/index.es2017.js';
+import { defineCustomElements } from '/node_modules/@revolist/revogrid/dist/esm/loader.js'
+import { cellTemplate } from './cell-template.js'
 import { Constants } from "./constants.js"
 import { Log } from "./logger.js"
 import { Utils } from "./utils.js"
@@ -40,7 +42,7 @@ class Index {
 
         let params = {
             'session-id': sessionId,
-            query: `select * from \`bills-1\` limit 1000`
+            query: `select * from \`bills-1\` limit 10`
         };
 
         Log(TAG, "Starting");
@@ -65,6 +67,9 @@ class Index {
                     columns.push({
                         'prop': row[j],
                         'name': row[j],
+                        cellTemplate: (createElement, props) => {
+                            return cellTemplate(createElement, props, fkMap);
+                        }
                     });
                 }
                 i++;
@@ -78,86 +83,93 @@ class Index {
             items.push(item);
         }
 
-        let e = new Date();
         grid.resize = true;
-		grid.columns = columns;
-		grid.source = items;
+        grid.columns = columns;
+        grid.source = items;
+
+        grid.addEventListener('afteredit', (e) => {
+            Log(TAG, e['detail']['val']);
+            Log(TAG, e['detail']['rowIndex']);
+            Log(TAG, e['detail']['prop']);
+        })
+
+        let e = new Date();
         Log(TAG, e.getTime() - s.getTime());
-	}
+    }
 
-	attachResizers() {
-		let $headers = document.querySelectorAll('th');
-		$headers.forEach(($h) => {
-			new Resizer($h);
-		})
-	}
+    attachResizers() {
+        let $headers = document.querySelectorAll('th');
+        $headers.forEach(($h) => {
+            new Resizer($h);
+        })
+    }
 
-	showHeaders(row) {
-		let $thead = document.querySelector('thead');
-		let t = '<tr>';
-		for (let i = 0; i < row.length; i += 2) {
+    showHeaders(row) {
+        let $thead = document.querySelector('thead');
+        let t = '<tr>';
+        for (let i = 0; i < row.length; i += 2) {
 
-			t += `<th>
-					<div class="th">
-						<div>${row[i]}</div>
-						<div class="resizer"></div>
-					</div>
-				</th>`;
-		}
+            t += `<th>
+                    <div class="th">
+                        <div>${row[i]}</div>
+                        <div class="resizer"></div>
+                    </div>
+                </th>`;
+        }
 
-		t += '</tr>'
-		$thead.insertAdjacentHTML('beforeend', t);
-	}
+        t += '</tr>'
+        $thead.insertAdjacentHTML('beforeend', t);
+    }
 
-	createFKMap(constraints) {
-		let fkMap = {}
-		let colIndex, refTblIndex, refColIndex
+    createFKMap(constraints) {
+        let fkMap = {}
+        let colIndex, refTblIndex, refColIndex
 
-		//first get indexes of columns of interest
-		let i = 0
-		constraints[0].forEach((c) => {
-			switch (c) {
-				case 'COLUMN_NAME':
-					colIndex = (i + 1)
-					break
+        //first get indexes of columns of interest
+        let i = 0
+        constraints[0].forEach((c) => {
+            switch (c) {
+                case 'COLUMN_NAME':
+                    colIndex = (i + 1)
+                    break
 
-				case 'REFERENCED_TABLE_NAME':
-					refTblIndex = (i + 1)
-					break;
+                case 'REFERENCED_TABLE_NAME':
+                    refTblIndex = (i + 1)
+                    break;
 
-				case 'REFERENCED_COLUMN_NAME':
-					refColIndex = (i + 1)
-					break;
-			}
-			i++
-		})
+                case 'REFERENCED_COLUMN_NAME':
+                    refColIndex = (i + 1)
+                    break;
+            }
+            i++
+        })
 
-		//Now get values of columns for each row
-		constraints.forEach((row) => {
-			if (row[refTblIndex] != "NULL") {
-				fkMap[row[colIndex]] = {
-					'ref-table': row[refTblIndex],
-					'ref-column': row[refColIndex],
-				}
-			}
-		})
+        //Now get values of columns for each row
+        constraints.forEach((row) => {
+            if (row[refTblIndex] != "NULL") {
+                fkMap[row[colIndex]] = {
+                    'ref-table': row[refTblIndex],
+                    'ref-column': row[refColIndex],
+                }
+            }
+        })
 
-		return fkMap
-	}
+        return fkMap
+    }
 
-	appendRow(re, $b, rt, row, fkMap) {
-		//convert to form suitable for processTemplate
-		let json = {}
-		for (let i = 0; i < row.length; i += 2) {
-			let c = row[i] //this is column name
-			let v = row[i + 1]
-			let refTable = ''
-			let refColumn = ''
+    appendRow(re, $b, rt, row, fkMap) {
+        //convert to form suitable for processTemplate
+        let json = {}
+        for (let i = 0; i < row.length; i += 2) {
+            let c = row[i] //this is column name
+            let v = row[i + 1]
+            let refTable = ''
+            let refColumn = ''
 
-			//get reftable and refColumn if any. Only for Non NULL values
-			if (fkMap[c] && v != "NULL") {
-				refTable = fkMap[c]['ref-table']
-				refColumn = fkMap[c]['ref-column']
+            //get reftable and refColumn if any. Only for Non NULL values
+            if (fkMap[c] && v != "NULL") {
+                refTable = fkMap[c]['ref-table']
+                refColumn = fkMap[c]['ref-column']
 			}
 
 			json[row[i]] = row[i + 1]; 
