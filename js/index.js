@@ -1,206 +1,46 @@
 //import { defineCustomElements } from 'https://unpkg.com/@revolist/revogrid@latest/loader/index.es2017.js';
-import { defineCustomElements } from '/node_modules/@revolist/revogrid/dist/esm/loader.js'
-import { cellTemplate } from './cell-template.js'
-import { Constants } from "./constants.js"
 import { Log } from "./logger.js"
-import { Utils } from "./utils.js"
-import { DbUtils } from "./dbutils.js"
-import { Stream } from "./stream.js"
 import { Resizer } from "./resizer.js"
 
 const TAG = 'index';
-const BATCH_SIZE = 50;
 
 class Index {
     constructor() {
-        defineCustomElements();
-        this.render();
-    }
+        this.isDragging = false;
+        this.$grid = document.getElementById('grid');
+        this.$col1 = document.getElementById('col-1');
+        this.$col2 = document.getElementById('col-2');
+        this.w1 = this.$col1.getBoundingClientRect().width;
+        this.w2 = this.$col2.getBoundingClientRect().width;
+        
+        Log(TAG, `${this.w1} ${this.w2}`);
 
-    async render() {
-        let creds = {
-            'db': 'test-generico',
-            'host': '127.0.0.1',
-            'port': '3306',
-            'user': 'server',
-            'pass': 'dev-server',
-        };
-
-        let sessionId = await DbUtils.login(creds);
-        let constraints = await DbUtils.fetch(sessionId, encodeURIComponent(`SELECT
-                TABLE_NAME,
-                COLUMN_NAME,
-                CONSTRAINT_NAME,
-                REFERENCED_TABLE_NAME,
-                REFERENCED_COLUMN_NAME
-                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-                WHERE
-                TABLE_SCHEMA = 'test-generico' and
-                TABLE_NAME = 'inventory-1'`));
-
-        let fkMap = this.createFKMap(constraints);
-
-        let params = {
-            'session-id': sessionId,
-            query: `select * from \`bills-1\` limit 10`
-        };
-
-        Log(TAG, "Starting");
-        let s = new Date();
-
-        let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
-		const grid = document.querySelector('revo-grid');
-
-        let i = 0;
-        let columns = [];
-        let items = [];
-
-        while (true) {
-            let row = await stream.get();
-
-            if (row.length == 1 && row[0] == "eos") {
-                break;
-            }
-
-            if (i == 0) {
-                for (let j = 0; j < row.length; j += 2) {
-                    columns.push({
-                        'prop': row[j],
-                        'name': row[j],
-                        cellTemplate: (createElement, props) => {
-                            return cellTemplate(createElement, props, fkMap);
-                        }
-                    });
-                }
-                i++;
-            }
-
-            let item = {};
-            for (let j = 0; j < row.length; j += 2) {
-                item[row[j]] = row[j + 1];
-            }
-
-            items.push(item);
-        }
-
-        grid.resize = true;
-        grid.columns = columns;
-        grid.source = items;
-
-        grid.addEventListener('afteredit', (e) => {
-            Log(TAG, e['detail']['val']);
-            Log(TAG, e['detail']['rowIndex']);
-            Log(TAG, e['detail']['prop']);
+        let $resizer = document.getElementById('resizer');
+        $resizer.addEventListener('mousedown', (e) => {
+            this.isDragging = true;
+            this.startx = e.clientX;
+            Log(TAG, `mousedown: ${e.clientX}`);
         })
 
-        let e = new Date();
-        Log(TAG, e.getTime() - s.getTime());
-    }
-
-    attachResizers() {
-        let $headers = document.querySelectorAll('th');
-        $headers.forEach(($h) => {
-            new Resizer($h);
-        })
-    }
-
-    showHeaders(row) {
-        let $thead = document.querySelector('thead');
-        let t = '<tr>';
-        for (let i = 0; i < row.length; i += 2) {
-
-            t += `<th>
-                    <div class="th">
-                        <div>${row[i]}</div>
-                        <div class="resizer"></div>
-                    </div>
-                </th>`;
-        }
-
-        t += '</tr>'
-        $thead.insertAdjacentHTML('beforeend', t);
-    }
-
-    createFKMap(constraints) {
-        let fkMap = {}
-        let colIndex, refTblIndex, refColIndex
-
-        //first get indexes of columns of interest
-        let i = 0
-        constraints[0].forEach((c) => {
-            switch (c) {
-                case 'COLUMN_NAME':
-                    colIndex = (i + 1)
-                    break
-
-                case 'REFERENCED_TABLE_NAME':
-                    refTblIndex = (i + 1)
-                    break;
-
-                case 'REFERENCED_COLUMN_NAME':
-                    refColIndex = (i + 1)
-                    break;
+        document.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) {
+                return;
             }
-            i++
-        })
+            Log(TAG, `mousemove: ${e.clientX}`);
+            let delta = e.clientX - this.startx;
+            this.w1 += delta;
+            this.w2 += -1 * delta;
+            Log(TAG, `${delta} ${this.w1} ${this.w2}`);
 
-        //Now get values of columns for each row
-        constraints.forEach((row) => {
-            if (row[refTblIndex] != "NULL") {
-                fkMap[row[colIndex]] = {
-                    'ref-table': row[refTblIndex],
-                    'ref-column': row[refColIndex],
-                }
-            }
-        })
+            this.$grid.style.gridTemplateColumns = `${this.w1}px 2px ${this.w2}px`;
+            this.startx = e.clientX;
+        });
 
-        return fkMap
+        document.addEventListener('mouseup', (e) => {
+            this.isDragging = false;
+            Log(TAG, `mouseup: ${e.clientX}`);
+        })
     }
-
-    appendRow(re, $b, rt, row, fkMap) {
-        //convert to form suitable for processTemplate
-        let json = {}
-        for (let i = 0; i < row.length; i += 2) {
-            let c = row[i] //this is column name
-            let v = row[i + 1]
-            let refTable = ''
-            let refColumn = ''
-
-            //get reftable and refColumn if any. Only for Non NULL values
-            if (fkMap[c] && v != "NULL") {
-                refTable = fkMap[c]['ref-table']
-                refColumn = fkMap[c]['ref-column']
-			}
-
-			json[row[i]] = row[i + 1]; 
-			json[`ref-table-${i}`] = refTable;
-			json[`ref-column-${i}`] = refColumn;
-
-			if (refTable) {
-				json[`display-${i}`] = `icon-show`;
-			} else {
-				json[`display-${i}`] = `icon-hide`;
-			}
-
-			if (v == "NULL") {
-				json[`null-${i}`] = 'null';
-			} else {
-				json[`null-${i}`] = '';
-			}
-		}
-
-		rt = rt.replace(re, function(match, p1) {
-			if (json[p1] || json[p1] == 0 || json[p1] == '') {
-				return json[p1];
-			} else {
-				return match;
-			}
-		});
-
-		$b.insertAdjacentHTML('beforeend', rt);
-
-		//$b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
-	}
 }
 
 new Index()

@@ -1545,3 +1545,16 @@ table td {
 .null {
 	color:#ddd;
 }
+
+#grid {
+	display:grid;
+	width: 302px;
+	height: 100px;
+	grid-template-columns: 100px 2px 200px;
+	background:#eee;
+}
+#resizer {
+	height:100%;
+	background:#444;
+	cursor:col-resize;
+}
