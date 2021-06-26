@@ -11,7 +11,7 @@ class DbUtils {
             query: query
         }
 
-        let json = await Utils.fetch(Constants.URL + '/execute?' + new URLSearchParams(params))
+        let json = await Utils.fetch(Constants.URL + '/query?' + new URLSearchParams(params))
         let cursorId = json.data['cursor-id']
 
         params = {
@@ -30,7 +30,7 @@ class DbUtils {
             query: query
         }
 
-        let json = await Utils.fetch(Constants.URL + '/execute?' + new URLSearchParams(params))
+        let json = await Utils.fetch(Constants.URL + '/query?' + new URLSearchParams(params))
         if (json.status == 'error') {
             Log(TAG, JSON.stringify(json))
             return []
@@ -75,6 +75,16 @@ class DbUtils {
         }
 
         return json.data['session-id']
+    }
+
+    static async execute(sessionId, query) {
+        let params = {
+            'session-id': sessionId,
+            query: query
+        }
+
+        let json = await Utils.fetch(Constants.URL + '/execute?' + new URLSearchParams(params))
+        return json.data
     }
 }
 export { DbUtils }

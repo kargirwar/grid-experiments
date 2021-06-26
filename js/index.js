@@ -1,33 +1,44 @@
 //import { defineCustomElements } from 'https://unpkg.com/@revolist/revogrid@latest/loader/index.es2017.js';
 import { defineCustomElements } from '/node_modules/@revolist/revogrid/dist/esm/loader.js'
 import { cellTemplate } from './cell-template.js'
+import { CellHandler } from './cell-handler.js'
 import { Constants } from "./constants.js"
 import { Log } from "./logger.js"
 import { Utils } from "./utils.js"
 import { DbUtils } from "./dbutils.js"
 import { Stream } from "./stream.js"
 import { Resizer } from "./resizer.js"
+import { PubSub } from './pubsub.js'
 
 const TAG = 'index';
 const BATCH_SIZE = 50;
+const TABLE = 'bills-1';
 
 class Index {
     constructor() {
         defineCustomElements();
         this.render();
+
+        PubSub.subscribe('cell-edited', async (data) => {
+            Log(TAG, JSON.stringify(data));
+            let res = await DbUtils.execute(this.sessionId, 
+                encodeURIComponent(`update \`${TABLE}\`
+                    set \`${data.col.name}\` = '${data.col.value}' 
+                    where \`${data.key.name}\` = '${data.key.value}'`));
+        });
     }
 
     async render() {
         let creds = {
-            'db': 'test-generico',
+            'db': 'pankaj-05-12-generico',
             'host': '127.0.0.1',
             'port': '3306',
             'user': 'server',
             'pass': 'dev-server',
         };
 
-        let sessionId = await DbUtils.login(creds);
-        let constraints = await DbUtils.fetch(sessionId, encodeURIComponent(`SELECT
+        this.sessionId = await DbUtils.login(creds);
+        let constraints = await DbUtils.fetch(this.sessionId, encodeURIComponent(`SELECT
                 TABLE_NAME,
                 COLUMN_NAME,
                 CONSTRAINT_NAME,
@@ -36,24 +47,27 @@ class Index {
                 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                 WHERE
                 TABLE_SCHEMA = 'test-generico' and
-                TABLE_NAME = 'inventory-1'`));
+                TABLE_NAME = '${TABLE}'`));
+        Log(TAG, JSON.stringify(constraints));
 
         let fkMap = this.createFKMap(constraints);
+        Log(TAG, JSON.stringify(fkMap));
 
         let params = {
-            'session-id': sessionId,
-            query: `select * from \`bills-1\` limit 10`
+            'session-id': this.sessionId,
+            query: `select * from \`${TABLE}\` limit 10`
         };
 
         Log(TAG, "Starting");
         let s = new Date();
 
-        let stream = new Stream(Constants.WS_URL + '/execute_ws?' + new URLSearchParams(params));
-		const grid = document.querySelector('revo-grid');
+        let stream = new Stream(Constants.WS_URL + '/query_ws?' + new URLSearchParams(params));
+        const grid = document.querySelector('revo-grid');
 
         let i = 0;
         let columns = [];
         let items = [];
+        let cellHandler = new CellHandler(grid, fkMap);
 
         while (true) {
             let row = await stream.get();
@@ -68,7 +82,7 @@ class Index {
                         'prop': row[j],
                         'name': row[j],
                         cellTemplate: (createElement, props) => {
-                            return cellTemplate(createElement, props, fkMap);
+                            return cellHandler.cellTemplate(createElement, props);
                         }
                     });
                 }
@@ -86,12 +100,6 @@ class Index {
         grid.resize = true;
         grid.columns = columns;
         grid.source = items;
-
-        grid.addEventListener('afteredit', (e) => {
-            Log(TAG, e['detail']['val']);
-            Log(TAG, e['detail']['rowIndex']);
-            Log(TAG, e['detail']['prop']);
-        })
 
         let e = new Date();
         Log(TAG, e.getTime() - s.getTime());
@@ -123,12 +131,16 @@ class Index {
 
     createFKMap(constraints) {
         let fkMap = {}
-        let colIndex, refTblIndex, refColIndex
+        let colIndex, refTblIndex, refColIndex, constraintNameIndex
 
         //first get indexes of columns of interest
         let i = 0
         constraints[0].forEach((c) => {
             switch (c) {
+                case 'CONSTRAINT_NAME':
+                    constraintNameIndex = (i + 1)
+                    break
+
                 case 'COLUMN_NAME':
                     colIndex = (i + 1)
                     break
@@ -152,55 +164,14 @@ class Index {
                     'ref-column': row[refColIndex],
                 }
             }
+
+            if (row[constraintNameIndex] == 'PRIMARY') {
+                fkMap['primary-key'] = row[colIndex]
+            }
         })
 
         return fkMap
     }
-
-    appendRow(re, $b, rt, row, fkMap) {
-        //convert to form suitable for processTemplate
-        let json = {}
-        for (let i = 0; i < row.length; i += 2) {
-            let c = row[i] //this is column name
-            let v = row[i + 1]
-            let refTable = ''
-            let refColumn = ''
-
-            //get reftable and refColumn if any. Only for Non NULL values
-            if (fkMap[c] && v != "NULL") {
-                refTable = fkMap[c]['ref-table']
-                refColumn = fkMap[c]['ref-column']
-			}
-
-			json[row[i]] = row[i + 1]; 
-			json[`ref-table-${i}`] = refTable;
-			json[`ref-column-${i}`] = refColumn;
-
-			if (refTable) {
-				json[`display-${i}`] = `icon-show`;
-			} else {
-				json[`display-${i}`] = `icon-hide`;
-			}
-
-			if (v == "NULL") {
-				json[`null-${i}`] = 'null';
-			} else {
-				json[`null-${i}`] = '';
-			}
-		}
-
-		rt = rt.replace(re, function(match, p1) {
-			if (json[p1] || json[p1] == 0 || json[p1] == '') {
-				return json[p1];
-			} else {
-				return match;
-			}
-		});
-
-		$b.insertAdjacentHTML('beforeend', rt);
-
-		//$b.insertAdjacentHTML('beforeend', Utils.processTemplate(rt, json))
-	}
 }
 
 new Index()

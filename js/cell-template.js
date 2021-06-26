@@ -2,6 +2,7 @@ import { Log } from './logger.js'
 
 const TAG = 'cell-template';
 const cellTemplate = (createElement, props, fkMap) => {
+    Log(TAG, props.rowIndex);
     let p = props.model[props.prop]
     let nullClass = '';
 
@@ -31,7 +32,6 @@ const cellTemplate = (createElement, props, fkMap) => {
     }
 
     return createElement('div', {class: nullClass}, v);
-
 };
 
 export { cellTemplate }
