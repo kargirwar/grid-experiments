@@ -8,6 +8,14 @@ class CellHandler {
         this.grid = grid;
         this.fkMap = fkMap;
 
+        document.addEventListener('paste', (e) => {
+            Log(TAG, 'paste');
+            let paste = (event.clipboardData || window.clipboardData).getData('text');
+            let target = e.target;
+            target.value = paste;
+            e.preventDefault();
+        });
+
         this.grid.addEventListener('afteredit', async (e) => {
             Log(TAG, e['detail']['val']);
             Log(TAG, e['detail']['rowIndex']);
