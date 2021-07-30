@@ -26,13 +26,30 @@ class Index {
                     set \`${data.col.name}\` = '${data.col.value}' 
                     where \`${data.key.name}\` = '${data.key.value}'`));
         });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let e = document.getElementById('full-screen');
+            e.addEventListener('click', () => {
+                this.toggleFullScreen();
+            });
+        });
+    }
+
+    toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
     }
 
     async render() {
         let creds = {
-            'db': 'pankaj-05-12-generico',
+            'db': 'prod3-generico',
             'host': '127.0.0.1',
-            'port': '3306',
+            'port': '3310',
             'user': 'server',
             'pass': 'dev-server',
         };
@@ -46,7 +63,7 @@ class Index {
                 REFERENCED_COLUMN_NAME
                 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                 WHERE
-                TABLE_SCHEMA = 'test-generico' and
+                TABLE_SCHEMA = 'prod3-generico' and
                 TABLE_NAME = '${TABLE}'`));
         Log(TAG, JSON.stringify(constraints));
 
