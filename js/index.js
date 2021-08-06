@@ -55,7 +55,7 @@ class Index {
         };
 
         this.sessionId = await DbUtils.login(creds);
-        let constraints = await DbUtils.fetch(this.sessionId, encodeURIComponent(`SELECT
+        let constraints = await DbUtils.fetch(this.sessionId, `SELECT
                 TABLE_NAME,
                 COLUMN_NAME,
                 CONSTRAINT_NAME,
@@ -64,21 +64,25 @@ class Index {
                 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                 WHERE
                 TABLE_SCHEMA = 'prod3-generico' and
-                TABLE_NAME = '${TABLE}'`));
+                TABLE_NAME = '${TABLE}'`);
         Log(TAG, JSON.stringify(constraints));
 
         let fkMap = this.createFKMap(constraints);
         Log(TAG, JSON.stringify(fkMap));
 
+        let query = `select * from \`${TABLE}\``;
+        let cursorId = await DbUtils.fetchCursorId(this.sessionId, query);
         let params = {
             'session-id': this.sessionId,
-            query: `select * from \`${TABLE}\` limit 10`
+            'cursor-id': cursorId,
+            'num-of-rows': 100,
+            'req-id': 'temp'
         };
 
         Log(TAG, "Starting");
         let s = new Date();
 
-        let stream = new Stream(Constants.WS_URL + '/query_ws?' + new URLSearchParams(params));
+        let stream = new Stream(Constants.WS_URL + '/fetch_ws?' + new URLSearchParams(params));
         const grid = document.querySelector('revo-grid');
 
         let i = 0;

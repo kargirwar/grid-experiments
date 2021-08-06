@@ -13,6 +13,9 @@ class PubSub {
 
     static publish(evt, data) {
         let list = subscribers[evt];
+        if (!list) {
+            return;
+        }
         for (let s of list) {
             s(data);
         }
